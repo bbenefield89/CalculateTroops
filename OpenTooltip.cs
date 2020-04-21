@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using TaleWorlds.CampaignSystem;
@@ -47,37 +48,32 @@ namespace CalculateTroops
 
         private static void ApplyRealTroopCountTooltipFix(TooltipVM __instance)
         {
-            var (inf, cav, arch, horseArch) = CalculateTroopTypes();
+            Dictionary<string, int> troopCount = CalculateTroopTypes();
             foreach (TooltipProperty tooltipProperty in __instance.TooltipPropertyList)
             {
-                if (tooltipProperty.DefinitionLabel.ToLower() == "infantry")
-                {
-                    tooltipProperty.ValueLabel += $" ( {inf} )";
-                }
-                else if (tooltipProperty.DefinitionLabel.ToLower() == "cavalry")
-                {
-                    tooltipProperty.ValueLabel += $" ( {cav} )";
-                }
-                else if (tooltipProperty.DefinitionLabel.ToLower() == "ranged")
-                {
-                    tooltipProperty.ValueLabel += $" ( {arch} )";
-                }
-                else if (tooltipProperty.DefinitionLabel.ToLower() == "horse archer")
-                {
-                    tooltipProperty.ValueLabel += $" ( {horseArch} )";
-                }
-                else if (tooltipProperty.DefinitionLabel.ToLower() == "prisoners")
+                if (tooltipProperty.DefinitionLabel.ToLower() == "prisoners")
                 {
                     break;
+                }
+
+                if (troopCount.TryGetValue(tooltipProperty.DefinitionLabel.ToLower(), out int troopCountValue))
+                {
+                    tooltipProperty.ValueLabel += $" ( {troopCountValue} )";
                 }
             }
         }
 
-        private static (int, int, int, int) CalculateTroopTypes()
+        private static Dictionary<string, int> CalculateTroopTypes()
         {
             MobileParty mobileParty = MobileParty.MainParty;
             TroopRosterElement[] partyList = (TroopRosterElement[])mobileParty.MemberRoster.GetType().GetField("data", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mobileParty.MemberRoster);
-            var (inf, cav, arch, horseArch) = (0, 0, 0, 0);
+            Dictionary<string, int> troopCount = new Dictionary<string, int>();
+            string[] troopTypeNames = { "infantry", "cavalry", "ranged", "horse archer" };
+            foreach (string troopTypeName in troopTypeNames)
+            {
+                troopCount.Add(troopTypeName, 0);
+            }
+
             foreach (TroopRosterElement troop in partyList)
             {
                 if (troop.Number == 0)
@@ -86,22 +82,22 @@ namespace CalculateTroops
                 }
                 else if (troop.Character.CurrentFormationClass.ToString().ToLower() == "horsearcher")
                 {
-                    horseArch += troop.Number;
+                    troopCount["horse archer"] += troop.Number;
                 }
                 else if (troop.Character.IsMounted == true)
                 {
-                    cav += troop.Number;
+                    troopCount["cavalry"] += troop.Number;
                 }
                 else if (troop.Character.IsInfantry == true)
                 {
-                    inf += troop.Number;
+                    troopCount["infantry"] += troop.Number;
                 }
                 else if (troop.Character.IsArcher == true)
                 {
-                    arch += troop.Number;
+                    troopCount["ranged"] += troop.Number;
                 }
             }
-            return (inf, cav, arch, horseArch);
+            return troopCount;
         }
     }
 }
