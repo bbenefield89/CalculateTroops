@@ -16,7 +16,6 @@ namespace CalculateTroops
         {
             try
             {
-                CreateCavalaryTooltipPropertyIfNeeded(__instance);
                 ApplyRealTroopCountTooltipFix(__instance);
             }
             catch (Exception ex)
@@ -28,35 +27,19 @@ namespace CalculateTroops
             }
         }
 
-        private static void CreateCavalaryTooltipPropertyIfNeeded(TooltipVM __instance)
-        {
-            TooltipProperty[] tooltipProperties = new TooltipProperty[__instance.TooltipPropertyList.Count];
-            __instance.TooltipPropertyList.CopyTo(tooltipProperties, 0);
-            for (int i = 0; i < tooltipProperties.Length; i++)
-            {
-                if (tooltipProperties[i].DefinitionLabel.ToLower() == "cavalry")
-                {
-                    break;
-                }
-                else if (tooltipProperties[i].DefinitionLabel.ToLower() == "prisoners")
-                {
-                    __instance.TooltipPropertyList.Insert(i - 2, new TooltipProperty("Cavalry", " 0", 0));
-                    break;
-                }
-            }
-        }
-
         private static void ApplyRealTroopCountTooltipFix(TooltipVM __instance)
         {
             Dictionary<string, int> troopCount = CalculateTroopTypes();
             foreach (TooltipProperty tooltipProperty in __instance.TooltipPropertyList)
             {
-                if (tooltipProperty.DefinitionLabel.ToLower() == "prisoners")
+                string toolTipPropertyLabel = tooltipProperty.DefinitionLabel.ToLower();
+
+                if (toolTipPropertyLabel == "prisoners")
                 {
                     break;
                 }
 
-                if (troopCount.TryGetValue(tooltipProperty.DefinitionLabel.ToLower(), out int troopCountValue))
+                if (troopCount.TryGetValue(toolTipPropertyLabel, out int troopCountValue))
                 {
                     tooltipProperty.ValueLabel += $" ( {troopCountValue} )";
                 }
@@ -65,14 +48,10 @@ namespace CalculateTroops
 
         private static Dictionary<string, int> CalculateTroopTypes()
         {
-            MobileParty mobileParty = MobileParty.MainParty;
-            TroopRosterElement[] partyList = (TroopRosterElement[])mobileParty.MemberRoster.GetType().GetField("data", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mobileParty.MemberRoster);
-            Dictionary<string, int> troopCount = new Dictionary<string, int>();
-            string[] troopTypeNames = { "infantry", "cavalry", "ranged", "horse archer" };
-            foreach (string troopTypeName in troopTypeNames)
-            {
-                troopCount.Add(troopTypeName, 0);
-            }
+            Dictionary<string, int> troopCount = BuildTroopCountDictionary();
+            TroopRosterElement[] partyList = (TroopRosterElement[]) MobileParty.MainParty.MemberRoster.GetType()
+                .GetField("data", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(MobileParty.MainParty.MemberRoster);
 
             foreach (TroopRosterElement troop in partyList)
             {
@@ -80,22 +59,26 @@ namespace CalculateTroops
                 {
                     break;
                 }
-                else if (troop.Character.CurrentFormationClass.ToString().ToLower() == "horsearcher")
+
+                string troopType = troop.Character.CurrentFormationClass.ToString().ToLower();
+
+                if (troopType.Length > 10)
                 {
-                    troopCount["horse archer"] += troop.Number;
+                    troopType = troopType.Insert(5, " ");
                 }
-                else if (troop.Character.IsMounted == true)
-                {
-                    troopCount["cavalry"] += troop.Number;
-                }
-                else if (troop.Character.IsInfantry == true)
-                {
-                    troopCount["infantry"] += troop.Number;
-                }
-                else if (troop.Character.IsArcher == true)
-                {
-                    troopCount["ranged"] += troop.Number;
-                }
+
+                troopCount[troopType] += troop.Number;
+            }
+            return troopCount;
+        }
+
+        private static Dictionary<string, int> BuildTroopCountDictionary()
+        {
+            Dictionary<string, int> troopCount = new Dictionary<string, int>(8);
+            string[] troopTypeNames = { "infantry", "cavalry", "ranged", "horse archer", "skirmisher", "heavy infantry", "light cavalry", "heavy cavalry" };
+            foreach (string troopTypeName in troopTypeNames)
+            {
+                troopCount.Add(troopTypeName, 0);
             }
             return troopCount;
         }
